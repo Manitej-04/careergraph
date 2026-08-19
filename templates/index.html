@@ -1,0 +1,1323 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>CareerGraph — Career Explorer</title>
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
+    <script src="https://unpkg.com/cytoscape@3.30.4/dist/cytoscape.min.js"></script>
+</head>
+
+<body>
+
+<div class="container">
+
+    <!-- ================= HEADER ================= -->
+
+    <header class="hero">
+
+        <div class="brand">
+            CAREERGRAPH
+        </div>
+
+        <h1>
+            Find the right career path through connected skills.
+        </h1>
+
+        <p>
+            Explore roles, required skills, practical projects and
+            technologies using a graph-powered recommendation system.
+        </p>
+
+    </header>
+
+
+    <!-- ================= CAREER SELECTOR ================= -->
+
+    <section class="selector-section">
+
+        <div class="section-number">
+            01
+        </div>
+
+        <h2>
+            Explore a Career
+        </h2>
+
+        <p class="section-subtitle">
+            Select a role to discover its connected skills, projects and technologies.
+        </p>
+
+        <label for="role">
+            Target Career
+        </label>
+
+        <select id="role">
+            <option value="">Loading roles...</option>
+        </select>
+
+        <button id="exploreBtn" onclick="explore()">
+            Explore Career Path
+            <span>→</span>
+        </button>
+
+    </section>
+
+
+    <!-- ================= LOADING ================= -->
+
+    <div id="loading" class="loading hidden">
+        <div class="spinner"></div>
+        Loading career graph...
+    </div>
+
+
+    <!-- ================= ERROR ================= -->
+
+    <div id="error" class="error hidden"></div>
+
+
+    <!-- ================= RESULTS ================= -->
+
+    <section id="results" class="results hidden">
+
+        <div class="result-heading">
+
+            <div>
+                <span class="eyebrow">CAREER PATH</span>
+
+                <h2 id="selectedRole">
+                    Career Path
+                </h2>
+
+                <p>
+                    Connected skills, projects and technologies.
+                </p>
+            </div>
+
+        </div>
+
+
+        <!-- ================= STATS ================= -->
+
+        <div class="stats-grid">
+
+            <div class="stat-card">
+                <span>Skills</span>
+                <strong id="skillCount">0</strong>
+            </div>
+
+            <div class="stat-card">
+                <span>Projects</span>
+                <strong id="projectCount">0</strong>
+            </div>
+
+            <div class="stat-card">
+                <span>Technologies</span>
+                <strong id="technologyCount">0</strong>
+            </div>
+
+            <div class="stat-card">
+                <span>Connections</span>
+                <strong id="connectionCount">0</strong>
+            </div>
+
+        </div>
+
+
+        <!-- ================= RECOMMENDATIONS ================= -->
+
+        <div class="content-grid">
+
+            <div class="content-card">
+
+                <div class="card-heading">
+                    <h3>Required Skills</h3>
+                    <span>Skills needed for this role</span>
+                </div>
+
+                <div id="skills" class="item-list"></div>
+
+            </div>
+
+
+            <div class="content-card">
+
+                <div class="card-heading">
+                    <h3>Recommended Projects</h3>
+                    <span>Projects that build these skills</span>
+                </div>
+
+                <div id="projects" class="item-list"></div>
+
+            </div>
+
+
+            <div class="content-card">
+
+                <div class="card-heading">
+                    <h3>Technologies</h3>
+                    <span>Technologies used by connected projects</span>
+                </div>
+
+                <div id="technologies" class="item-list"></div>
+
+            </div>
+
+        </div>
+
+
+        <!-- ================= GRAPH ================= -->
+
+        <section class="graph-section">
+
+            <div class="graph-header">
+
+                <div>
+                    <h2>Interactive Career Graph</h2>
+
+                    <p>
+                        Role → Skills → Projects → Technologies
+                    </p>
+                </div>
+
+                <button
+                    type="button"
+                    class="graph-btn"
+                    onclick="fitGraph()">
+                    Fit Graph
+                </button>
+
+            </div>
+
+
+            <div class="graph-legend">
+
+                <div>
+                    <span class="legend-dot role-dot"></span>
+                    Role
+                </div>
+
+                <div>
+                    <span class="legend-dot skill-dot"></span>
+                    Skill
+                </div>
+
+                <div>
+                    <span class="legend-dot project-dot"></span>
+                    Project
+                </div>
+
+                <div>
+                    <span class="legend-dot technology-dot"></span>
+                    Technology
+                </div>
+
+            </div>
+
+
+            <!-- IMPORTANT:
+                 No dragging.
+                 No scrolling.
+                 No zooming.
+            -->
+
+            <div id="careerGraph"></div>
+
+        </section>
+
+
+        <!-- ================= WHY GRAPH ================= -->
+
+        <section class="why-graph">
+
+            <div>
+
+                <span class="eyebrow">
+                    WHY A GRAPH DATABASE?
+                </span>
+
+                <h2>
+                    Career recommendations are about relationships.
+                </h2>
+
+                <p>
+                    A role connects to required skills. Those skills connect
+                    to projects, and projects connect to technologies.
+                    CareerGraph uses these multi-hop relationships to
+                    identify relevant career paths.
+                </p>
+
+            </div>
+
+
+            <div class="path-example">
+
+                <div>ROLE</div>
+                <span>→</span>
+                <div>SKILL</div>
+                <span>→</span>
+                <div>PROJECT</div>
+                <span>→</span>
+                <div>TECHNOLOGY</div>
+
+            </div>
+
+        </section>
+
+    </section>
+
+
+    <!-- ================= FOOTER ================= -->
+
+    <footer>
+
+        <strong>CareerGraph</strong>
+
+        <span>
+            Powered by Flask + CognoDB + openCypher
+        </span>
+
+    </footer>
+
+</div>
+
+
+<script>
+
+let careerGraph = null;
+
+
+/* =========================================================
+   LOAD ROLES
+========================================================= */
+
+async function loadRoles() {
+
+    const select = document.getElementById("role");
+
+    try {
+
+        const response = await fetch("/api/roles");
+
+        if (!response.ok) {
+            throw new Error("Unable to load roles");
+        }
+
+        const roles = await response.json();
+
+        select.innerHTML = "";
+
+        roles.forEach(item => {
+
+            const option = document.createElement("option");
+
+            option.value = item.name;
+            option.textContent = item.name;
+
+            select.appendChild(option);
+
+        });
+
+    } catch (error) {
+
+        select.innerHTML =
+            '<option value="">Unable to load roles</option>';
+
+        showError("Unable to load career roles.");
+
+    }
+}
+
+
+/* =========================================================
+   EXPLORE
+========================================================= */
+
+async function explore() {
+
+    const role =
+        document.getElementById("role").value;
+
+    if (!role) {
+        showError("Please select a career role.");
+        return;
+    }
+
+    hideError();
+
+    const loading =
+        document.getElementById("loading");
+
+    const results =
+        document.getElementById("results");
+
+    loading.classList.remove("hidden");
+
+    results.classList.add("hidden");
+
+
+    try {
+
+        const encodedRole =
+            encodeURIComponent(role);
+
+
+        const [
+            recommendationsResponse,
+            graphResponse,
+            statsResponse
+        ] = await Promise.all([
+
+            fetch(
+                `/api/recommendations?role=${encodedRole}`
+            ),
+
+            fetch(
+                `/api/graph?role=${encodedRole}`
+            ),
+
+            fetch(
+                `/api/stats?role=${encodedRole}`
+            )
+
+        ]);
+
+
+        if (
+            !recommendationsResponse.ok ||
+            !graphResponse.ok ||
+            !statsResponse.ok
+        ) {
+            throw new Error("Unable to load career data.");
+        }
+
+
+        const recommendations =
+            await recommendationsResponse.json();
+
+        const graph =
+            await graphResponse.json();
+
+        const stats =
+            await statsResponse.json();
+
+
+        document.getElementById(
+            "selectedRole"
+        ).textContent = role;
+
+
+        renderRecommendations(
+            recommendations
+        );
+
+
+        renderStats(
+            stats
+        );
+
+
+        renderGraph(
+            graph
+        );
+
+
+        results.classList.remove(
+            "hidden"
+        );
+
+
+        setTimeout(
+            fitGraph,
+            100
+        );
+
+    } catch (error) {
+
+        console.error(error);
+
+        showError(
+            "Unable to load career recommendations. Please try again."
+        );
+
+    } finally {
+
+        loading.classList.add(
+            "hidden"
+        );
+
+    }
+}
+
+
+/* =========================================================
+   RENDER RECOMMENDATIONS
+========================================================= */
+
+function renderRecommendations(data) {
+
+    const skillsContainer =
+        document.getElementById("skills");
+
+    const projectsContainer =
+        document.getElementById("projects");
+
+    const technologiesContainer =
+        document.getElementById("technologies");
+
+
+    skillsContainer.innerHTML = "";
+    projectsContainer.innerHTML = "";
+    technologiesContainer.innerHTML = "";
+
+
+    const projects = new Set();
+    const technologies = new Set();
+
+
+    data.forEach(item => {
+
+        const skill = item.skill;
+
+        if (skill) {
+
+            const skillElement =
+                document.createElement("div");
+
+            skillElement.className =
+                "list-item skill-item";
+
+            skillElement.textContent =
+                skill;
+
+            skillsContainer.appendChild(
+                skillElement
+            );
+
+        }
+
+
+        (item.projects || []).forEach(
+            project => {
+
+                if (project) {
+                    projects.add(project);
+                }
+
+            }
+        );
+
+
+        (item.technologies || []).forEach(
+            technology => {
+
+                if (technology) {
+                    technologies.add(technology);
+                }
+
+            }
+        );
+
+    });
+
+
+    projects.forEach(project => {
+
+        const element =
+            document.createElement("div");
+
+        element.className =
+            "list-item project-item";
+
+        element.textContent =
+            project;
+
+        projectsContainer.appendChild(
+            element
+        );
+
+    });
+
+
+    technologies.forEach(technology => {
+
+        const element =
+            document.createElement("div");
+
+        element.className =
+            "list-item technology-item";
+
+        element.textContent =
+            technology;
+
+        technologiesContainer.appendChild(
+            element
+        );
+
+    });
+
+
+    if (!skillsContainer.children.length) {
+        skillsContainer.innerHTML =
+            '<div class="empty">No skills found.</div>';
+    }
+
+    if (!projectsContainer.children.length) {
+        projectsContainer.innerHTML =
+            '<div class="empty">No projects found.</div>';
+    }
+
+    if (!technologiesContainer.children.length) {
+        technologiesContainer.innerHTML =
+            '<div class="empty">No technologies found.</div>';
+    }
+}
+
+
+/* =========================================================
+   STATS
+========================================================= */
+
+function renderStats(stats) {
+
+    document.getElementById(
+        "skillCount"
+    ).textContent =
+        stats.skills || 0;
+
+
+    document.getElementById(
+        "projectCount"
+    ).textContent =
+        stats.projects || 0;
+
+
+    document.getElementById(
+        "technologyCount"
+    ).textContent =
+        stats.technologies || 0;
+
+
+    document.getElementById(
+        "connectionCount"
+    ).textContent =
+        stats.connections || 0;
+}
+
+
+/* =========================================================
+   RENDER GRAPH
+========================================================= */
+
+function renderGraph(data) {
+
+    const container =
+        document.getElementById(
+            "careerGraph"
+        );
+
+
+    if (
+        careerGraph
+    ) {
+
+        careerGraph.destroy();
+
+        careerGraph = null;
+    }
+
+
+    if (
+        !data ||
+        !Array.isArray(data.nodes) ||
+        !data.nodes.length
+    ) {
+
+        container.innerHTML =
+            '<div class="empty graph-empty">No graph data found.</div>';
+
+        return;
+    }
+
+
+    container.innerHTML = "";
+
+
+    const elements = [];
+
+
+    /*
+     * Nodes
+     */
+
+    data.nodes.forEach(
+        node => {
+
+            elements.push({
+
+                data: {
+
+                    id:
+                        String(node.id),
+
+                    label:
+                        String(node.label),
+
+                    type:
+                        String(node.type)
+
+                }
+
+            });
+
+        }
+    );
+
+
+    /*
+     * Relationships
+     */
+
+    (data.relationships || []).forEach(
+        (relationship, index) => {
+
+            elements.push({
+
+                data: {
+
+                    id:
+                        `edge-${index}`,
+
+                    source:
+                        String(
+                            relationship.source
+                        ),
+
+                    target:
+                        String(
+                            relationship.target
+                        ),
+
+                    label:
+                        String(
+                            relationship.type
+                        )
+
+                }
+
+            });
+
+        }
+    );
+
+
+    /*
+     * FIXED COLUMN POSITIONS
+     *
+     * Role       → left
+     * Skills     → middle-left
+     * Projects   → middle
+     * Technology → right
+     */
+
+    const nodesByType = {
+
+        Role: [],
+        Skill: [],
+        Project: [],
+        Technology: []
+
+    };
+
+
+    data.nodes.forEach(
+        node => {
+
+            if (
+                nodesByType[node.type]
+            ) {
+
+                nodesByType[node.type].push(
+                    node
+                );
+
+            }
+
+        }
+    );
+
+
+    const positions = {};
+
+    const width = 1050;
+    const height = 560;
+
+
+    function createColumn(
+        nodes,
+        x
+    ) {
+
+        if (!nodes.length) {
+            return;
+        }
+
+
+        const spacing =
+            Math.min(
+                95,
+                (height - 100) /
+                Math.max(
+                    nodes.length,
+                    1
+                )
+            );
+
+
+        const totalHeight =
+            spacing *
+            (nodes.length - 1);
+
+
+        const startY =
+            (height - totalHeight) / 2;
+
+
+        nodes.forEach(
+            (node, index) => {
+
+                positions[node.id] = {
+
+                    x: x,
+
+                    y:
+                        startY +
+                        index * spacing
+
+                };
+
+            }
+        );
+
+    }
+
+
+    createColumn(
+        nodesByType.Role,
+        90
+    );
+
+    createColumn(
+        nodesByType.Skill,
+        320
+    );
+
+    createColumn(
+        nodesByType.Project,
+        590
+    );
+
+    createColumn(
+        nodesByType.Technology,
+        880
+    );
+
+
+    /*
+     * Create Cytoscape
+     */
+
+    careerGraph =
+        cytoscape({
+
+            container:
+                container,
+
+            elements:
+                elements,
+
+            style: [
+
+                {
+                    selector: "node",
+
+                    style: {
+
+                        "label":
+                            "data(label)",
+
+                        "text-valign":
+                            "center",
+
+                        "text-halign":
+                            "center",
+
+                        "font-family":
+                            "Inter, Arial, sans-serif",
+
+                        "font-size":
+                            14,
+
+                        "font-weight":
+                            700,
+
+                        "color":
+                            "#0f172a",
+
+                        "text-wrap":
+                            "wrap",
+
+                        "text-max-width":
+                            150,
+
+                        "width":
+                            150,
+
+                        "height":
+                            62,
+
+                        "background-color":
+                            "#ffffff",
+
+                        "border-width":
+                            2,
+
+                        "border-color":
+                            "#818cf8",
+
+                        "shadow-blur":
+                            12,
+
+                        "shadow-opacity":
+                            0.12,
+
+                        "shadow-offset-y":
+                            4,
+
+                        "shadow-color":
+                            "#64748b",
+
+                        "overlay-opacity":
+                            0
+
+                    }
+
+                },
+
+
+                {
+                    selector:
+                        'node[type = "Role"]',
+
+                    style: {
+
+                        "background-color":
+                            "#111827",
+
+                        "border-color":
+                            "#111827",
+
+                        "color":
+                            "#ffffff",
+
+                        "width":
+                            175,
+
+                        "height":
+                            76,
+
+                        "font-size":
+                            15,
+
+                        "font-weight":
+                            800
+
+                    }
+
+                },
+
+
+                {
+                    selector:
+                        'node[type = "Skill"]',
+
+                    style: {
+
+                        "background-color":
+                            "#ffffff",
+
+                        "border-color":
+                            "#6d8cff",
+
+                        "color":
+                            "#0f172a"
+
+                    }
+
+                },
+
+
+                {
+                    selector:
+                        'node[type = "Project"]',
+
+                    style: {
+
+                        "background-color":
+                            "#ffffff",
+
+                        "border-color":
+                            "#7768ed",
+
+                        "color":
+                            "#0f172a",
+
+                        "width":
+                            190
+
+                    }
+
+                },
+
+
+                {
+                    selector:
+                        'node[type = "Technology"]',
+
+                    style: {
+
+                        "background-color":
+                            "#ffffff",
+
+                        "border-color":
+                            "#875cf5",
+
+                        "color":
+                            "#0f172a"
+
+                    }
+
+                },
+
+
+                {
+                    selector: "edge",
+
+                    style: {
+
+                        "curve-style":
+                            "bezier",
+
+                        "width":
+                            1.7,
+
+                        "line-color":
+                            "#c5cfdf",
+
+                        "target-arrow-color":
+                            "#94a3b8",
+
+                        "target-arrow-shape":
+                            "triangle",
+
+                        "arrow-scale":
+                            0.7,
+
+                        "label":
+                            "data(label)",
+
+                        "font-size":
+                            8,
+
+                        "font-weight":
+                            700,
+
+                        "color":
+                            "#64748b",
+
+                        "text-background-color":
+                            "#ffffff",
+
+                        "text-background-opacity":
+                            0.9,
+
+                        "text-background-padding":
+                            3
+
+                    }
+
+                },
+
+
+                {
+                    selector:
+                        "node:selected",
+
+                    style: {
+
+                        "border-width":
+                            4,
+
+                        "border-color":
+                            "#2563eb"
+
+                    }
+
+                }
+
+            ],
+
+
+            /*
+             * FIXED LAYOUT
+             */
+
+            layout: {
+
+                name:
+                    "preset",
+
+                positions:
+                    node => {
+
+                        return (
+                            positions[
+                                node.id()
+                            ] || {
+                                x: width / 2,
+                                y: height / 2
+                            }
+                        );
+
+                    },
+
+                fit:
+                    true,
+
+                padding:
+                    45
+
+            },
+
+
+            /*
+             * IMPORTANT:
+             * Disable dragging, zooming and panning.
+             */
+
+            userZoomingEnabled:
+                false,
+
+            userPanningEnabled:
+                false,
+
+            boxSelectionEnabled:
+                false,
+
+            autoungrabify:
+                true,
+
+            autounselectify:
+                false,
+
+            minZoom:
+                0.7,
+
+            maxZoom:
+                1.3
+
+        });
+
+
+    /*
+     * Node details
+     */
+
+    careerGraph.on(
+        "tap",
+        "node",
+        function(event) {
+
+            const node =
+                event.target;
+
+            showNodeDetails(
+                node.data()
+            );
+
+        }
+    );
+
+}
+
+
+/* =========================================================
+   NODE DETAILS
+========================================================= */
+
+function showNodeDetails(node) {
+
+    const existing =
+        document.getElementById(
+            "nodeDetails"
+        );
+
+    if (existing) {
+        existing.remove();
+    }
+
+
+    const panel =
+        document.createElement("div");
+
+    panel.id =
+        "nodeDetails";
+
+    panel.className =
+        "node-details";
+
+
+    panel.innerHTML = `
+
+        <button
+            class="close-details"
+            onclick="closeNodeDetails()">
+            ×
+        </button>
+
+        <span class="detail-type">
+            ${escapeHtml(
+                node.type
+            )}
+        </span>
+
+        <h3>
+            ${escapeHtml(
+                node.label
+            )}
+        </h3>
+
+        <p>
+            Connected node in the CareerGraph relationship network.
+        </p>
+
+    `;
+
+
+    document
+        .querySelector(".graph-section")
+        .appendChild(panel);
+}
+
+
+function closeNodeDetails() {
+
+    const panel =
+        document.getElementById(
+            "nodeDetails"
+        );
+
+    if (panel) {
+        panel.remove();
+    }
+
+    if (careerGraph) {
+        careerGraph
+            .elements()
+            .unselect();
+    }
+}
+
+
+/* =========================================================
+   FIT GRAPH
+========================================================= */
+
+function fitGraph() {
+
+    if (!careerGraph) {
+        return;
+    }
+
+    careerGraph.fit(
+        undefined,
+        45
+    );
+}
+
+
+/* =========================================================
+   ERROR
+========================================================= */
+
+function showError(message) {
+
+    const error =
+        document.getElementById(
+            "error"
+        );
+
+    error.textContent =
+        message;
+
+    error.classList.remove(
+        "hidden"
+    );
+}
+
+
+function hideError() {
+
+    document
+        .getElementById("error")
+        .classList.add("hidden");
+}
+
+
+/* =========================================================
+   HTML ESCAPING
+========================================================= */
+
+function escapeHtml(value) {
+
+    return String(
+        value ?? ""
+    )
+        .replace(
+            /&/g,
+            "&amp;"
+        )
+        .replace(
+            /</g,
+            "&lt;"
+        )
+        .replace(
+            />/g,
+            "&gt;"
+        )
+        .replace(
+            /"/g,
+            "&quot;"
+        )
+        .replace(
+            /'/g,
+            "&#039;"
+        );
+}
+
+
+/* =========================================================
+   START
+========================================================= */
+
+loadRoles();
+
+</script>
+
+</body>
+</html>
