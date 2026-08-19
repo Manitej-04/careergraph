@@ -88,36 +88,42 @@ def recommendations():
 
     role = request.args.get("role", "").strip()
 
-    if not role:
+    try :
+        if not role:
+                return jsonify({
+                    "error": "Role is required"
+                }), 400
+        
+        result = run_query("""
+                            MATCH (r:Role {name: $role})
+                                -[:REQUIRES]->(s:Skill)
+                    
+                            OPTIONAL MATCH (p:Project)
+                                -[:TEACHES]->(s)
+                    
+                            OPTIONAL MATCH (p)
+                                -[:USES]->(t:Technology)
+                    
+                            RETURN
+                                r.name AS role,
+                                s.name AS skill,
+                                collect(DISTINCT p.name) AS projects,
+                                collect(DISTINCT t.name) AS technologies
+                    
+                            ORDER BY skill
+                        """, role=role)
+                    
+        if not result:
+            return jsonify({"error": f"No career data found for role: {role}"}), 404
+                    
+        return jsonify(result), 200
+    
+    except Exception as e:
+        app.logger.exception("Recommendation API failed")
         return jsonify({
-            "error": "Role is required"
-        }), 400
-
-    result = run_query("""
-        MATCH (r:Role {name: $role})
-              -[:REQUIRES]->(s:Skill)
-
-        OPTIONAL MATCH (p:Project)
-              -[:TEACHES]->(s)
-
-        OPTIONAL MATCH (p)
-              -[:USES]->(t:Technology)
-
-        RETURN
-            r.name AS role,
-            s.name AS skill,
-            collect(DISTINCT p.name) AS projects,
-            collect(DISTINCT t.name) AS technologies
-
-        ORDER BY skill
-    """, role=role)
-
-    if not result:
-        return jsonify({
-            "error": f"No career data found for role: {role}"
-        }), 404
-
-    return jsonify(result)
+            "error": "Recommendation query failed",
+            "details": str(e)
+        }), 500
 
 
 # ============================================================
