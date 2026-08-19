@@ -14,23 +14,107 @@ Choosing a career path often requires understanding how different skills, projec
 
 CareerGraph represents these relationships as a graph and allows users to select a target career and explore its connected learning path.
 
-For example:
+                  ┌──────────────┐
+                  │     Role     │
+                  └──────┬───────┘
+                         │
+                      REQUIRES
+                         │
+                         ▼
+                  ┌──────────────┐
+                  │    Skill     │
+                  └──────┬───────┘
+                         │
+                      TEACHES
+                         │
+                         ▼
+                  ┌──────────────┐
+                  │   Project    │
+                  └──────┬───────┘
+                         │
+                        USES
+                         │
+                         ▼
+                  ┌──────────────┐
+                  │ Technology   │
+                  └──────────────┘
 
-```text
-Role
-  │
-  └── REQUIRES
+Example:
+For the Data Analyst role, the graph can contain relationships such as:
+
+    Data Analyst
         │
-        ▼
-      Skill
-        ▲
+        ├── REQUIRES → Python
+        ├── REQUIRES → SQL
+        ├── REQUIRES → Statistics
+        └── REQUIRES → Database Design
+
+    Python
+        ↑
+        │ TEACHES
         │
-     TEACHES
+    Analytics Dashboard
         │
-        │
-      Project
-        │
-       USES
-        │
-        ▼
-   Technology
+        ├── USES → PostgreSQL
+        ├── USES → Pandas
+        └── USES → Power BI
+
+## Features
+
+- Career role selection
+- Required skill discovery
+- Project recommendations
+- Technology relationships
+- Interactive career graph
+- Career statistics
+- REST APIs
+
+## Tech Stack
+
+- Python
+- Flask
+- CognoDB
+- Cypher
+- HTML
+- CSS
+- JavaScript
+
+## Steps to Run the Application
+
+1. Create a CognoDB Cloud instance
+  - Go to CognoDB Cloud.
+  - Create an account and provision a free C0 instance.
+  - Copy the following connection details:
+  - URI: bolt+s://<instance-id>.databases.cognodb.cloud
+  - Username: cognodb
+  - Password: generated when the instance is created.
+  - Save the password securely because CognoDB displays it only once.
+
+2. Clone the repository
+  - git clone <YOUR_GITHUB_REPOSITORY_URL>
+  - cd CareerGraph
+
+3. Create a Python virtual environment
+  - python -m venv .venv
+  - .venv\Scripts\activate
+
+4. Install dependencies
+  - pip install -r requirements.txt
+
+5. Configure environment variables
+  - COGNODB_URI=bolt+s://<your-instance-id>.databases.cognodb.cloud
+  - COGNODB_USER=cognodb
+  - COGNODB_PASSWORD=<your-cognodb-password>
+
+6. Seed the graph database
+  - python seed.py
+  - Expected output:
+      python seed.py
+
+7. Start the Flask application
+  - python app.py
+  - Flask start on: http://127.0.0.1:5000
+
+
+Author
+Manitej Budigini
